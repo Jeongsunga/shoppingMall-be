@@ -30,7 +30,7 @@ productController.createProduct = async (req, res) => {
     await product.save();
     return res.status(200).json({ status: "success", product });
   } catch (error) {
-    return res.status(200).json({ status: "fail", error: error.message });
+    return res.status(400).json({ status: "fail", error: error.message });
   }
 };
 
@@ -55,8 +55,61 @@ productController.getProducts = async (req, res) => {
     response.data = productList;
     return res.status(200).json(response);
   } catch (error) {
-    return res.status(200).json({ status: "fail", error: error.message });
+    return res.status(400).json({ status: "fail", error: error.message });
   }
 };
+
+productController.updateProduct = async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const {
+      sku,
+      name,
+      size,
+      image,
+      category,
+      description,
+      price,
+      stock,
+      status,
+    } = req.body;
+
+    const product = await Product.findByIdAndUpdate(
+      { _id: productId },
+      { sku, name, size, image, category, description, price, stock, status },
+      { new: true }
+    );
+
+    if(!product) throw new Error("Item doesn't exist");
+    return res.status(200).json({ status: "success", data: product });
+  } catch (error) {
+    return res.status(400).json({ status: "fail", error: error.message });
+  }
+};
+
+productController.deleteProduct = async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const product = await Product.findByIdAndUpdate(
+      { _id: productId },
+      { isDeleted: true }
+    );
+    if (!product) throw new Error("No item found");
+    return res.status(200).json({ status: "success" });
+  } catch (error) {
+    return res.status(400).json({ status: "fail", error: error.message });
+  }
+};
+
+productController.getProductById = async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const product = await Product.findById(productId);
+    if (!product) throw new Error("No item found");
+    res.status(200).json({ status: "success", data: product });
+  } catch(error) {
+    return res.status(400).json({ status: "fail", error: error.message });
+  }
+}
 
 module.exports = productController;
