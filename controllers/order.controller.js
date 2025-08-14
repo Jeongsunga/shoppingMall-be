@@ -15,12 +15,13 @@ orderController.createOrder = async (req, res) => {
     );
 
     if (insufficientStockItems.length > 0) {
-      const errorMessage = insufficientStockItems.reduce(
-        (total, item) => (total += item.message),
-        ""
-      );
+      const errorMessage = insufficientStockItems
+        .map((item) => item.message)
+        .join(", ");
       throw new Error(errorMessage);
     }
+
+    await productController.updateItemListStock(orderList);
 
     const newOrder = new Order({
       userId,
@@ -32,6 +33,7 @@ orderController.createOrder = async (req, res) => {
     });
 
     await newOrder.save();
+    
     return res
       .status(200)
       .json({ status: "success", orderNum: newOrder.orderNum });

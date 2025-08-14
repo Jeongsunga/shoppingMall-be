@@ -114,6 +114,13 @@ productController.getProductById = async (req, res) => {
 
 productController.checkStock = async (item) => {
   const product = await Product.findById(item.productId);
+  if (!product) {
+    return {
+      isVerify: false,
+      message: `${product.name}를 찾을 수 없습니다`,
+    };
+  }
+
   if (product.stock[item.size] < item.qty) {
     return {
       isVerify: false,
@@ -121,11 +128,6 @@ productController.checkStock = async (item) => {
     };
   }
 
-  const newStock = { ...product.stock };
-  newStock[item.size] -= item.qty;
-  product.stock = newStock;
-
-  await product.save();
   return { isVerify: true };
 };
 
@@ -143,6 +145,29 @@ productController.checkItemListStock = async (itemList) => {
   );
 
   return insufficientStockItems;
+};
+
+// 재고 차감
+productController.updateStock = async(item) => {
+  const product = await Product.findById(item.productId);
+
+  if(!product) {
+    throw new Error("No item found");
+  }
+
+  if (product.stock[item.size] < item.qty) {
+    throw new Error(`${product.name}의 ${item.size} 재고가 부족합니다`);
+  }
+
+  product.stock[item.size] -= item.qty;
+  product.markModified('stock');
+  await product.save();
+};
+
+productController.updateItemListStock = async (itemList) => {
+  for (const item of itemList) {
+    await productController.updateStock(item);
+  }
 };
 
 module.exports = productController;
