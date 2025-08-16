@@ -1,5 +1,6 @@
 const orderController = {};
 const PAGE_SIZE = 3;
+const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const productController = require("./product.controller");
 const { randomStringGenerator } = require("../utils/randomStringGenerator");
@@ -33,7 +34,7 @@ orderController.createOrder = async (req, res) => {
     });
 
     await newOrder.save();
-    
+
     return res
       .status(200)
       .json({ status: "success", orderNum: newOrder.orderNum });
@@ -95,10 +96,57 @@ orderController.getOrderByUserId = async (req, res) => {
   }
 };
 
-orderController.updateOrderStatus = async(req, res) => {
+orderController.getPurchasedSizes = async (req, res) => {
+  try {
+    const { userId } = req;
+    const { id } = req.params;
+
+    const purchasedSizes = await Order.aggregate([
+      {
+        $match: {
+          userId: new mongoose.Types.ObjectId(userId),
+          "items.productId": new mongoose.Types.ObjectId(id),
+          status: { $in: ["delivered", "refund"] },
+        },
+      },
+      { $unwind: "$items" },
+      {
+        $match: {
+          "items.productId": new mongoose.Types.ObjectId(id),
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          sizes: { $addToSet: "$items.size" },
+        },
+      },
+    ]);
+
+    const availableSizes = purchasedSizes[0]?.sizes || [];
+
+    const sizeOrder = ["xs", "s", "m", "l", "xl"];
+    availableSizes.sort((a, b) => {
+      const indexA = sizeOrder.indexOf(a);
+      const indexB = sizeOrder.indexOf(b);
+      if (indexA === -1 && indexB === -1) {
+        return a.localeCompare(b); // 둘 다 없으면 알파벳 정렬
+      }
+      if (indexA === -1) return 1; // a가 없으면 뒤로
+      if (indexB === -1) return -1; // b가 없으면 뒤로
+      return indexA - indexB;
+    });
+
+    return res.status(200).json({ status: "success", data: availableSizes });
+  } catch (error) {
+    return res.status(400).json({ status: "fail", error: error.message });
+  }
+};
+
+orderController.updateOrderStatus = async (req, res) => {
   try {
     const orderNum = req.params.id;
-    const {status} = req.body;
+    const { status } = req.body;
 
     const order = await Order.findOneAndUpdate(
       { orderNum },
@@ -108,8 +156,8 @@ orderController.updateOrderStatus = async(req, res) => {
 
     if (!order) throw new Error("Order doesn't exist");
     return res.status(200).json({ status: "success", data: order });
-  } catch(error) {
-    return res.status(400).json({ status: "fail", error: error.message })
+  } catch (error) {
+    return res.status(400).json({ status: "fail", error: error.message });
   }
 };
 
